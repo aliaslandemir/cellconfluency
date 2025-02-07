@@ -113,7 +113,7 @@ cellconfluency/
 ├── analysis.py              # Main script for segmentation and analysis
 ├── requirements.txt         # Python package requirements
 ├── README.md                # This file
-└── (additional files, if any)
+└── 
 ```
 
 ## Contributing
@@ -126,11 +126,3 @@ Contributions are welcome! To contribute:
 
 ## License
 
-[Specify your project's license here, e.g., MIT License.]
-
-## Acknowledgments
-
-- Thanks to the researchers and developers whose work in bright-field imaging and segmentation (e.g., Residual U-Net approaches for RPE cells) has inspired this project.
-- Special thanks to [aliaslandemir](https://github.com/aliaslandemir) for hosting the repository.
-
-```
