@@ -47,7 +47,7 @@ def process_image(img_path):
 
     # 3. Preprocessing: 
     # Denoise + optional morphological top-hat to highlight elongated cells
-    denoised = cv2.bilateralFilter(gray, 9, 75, 75)
+    denoised = cv2.bilateralFilter(gray, 11, 80, 80)
 
     # (Optional) Top-hat transform to isolate bright/dark features
     # kernel_th = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))
@@ -57,7 +57,7 @@ def process_image(img_path):
     # For now, let's continue using denoised directly:
 
     # 4. Contrast enhancement with CLAHE
-    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(7, 7))
     enhanced = clahe.apply(denoised)
 
     # 5. Invert if cells appear dark on bright background 
@@ -142,7 +142,7 @@ def analyze_cells(label_image, intensity_image):
 
 
 
-def visualize_and_save(original, label_image, perimeter_map_path, colored_path, confluency_percent, df):
+def visualize_and_save(original, label_image, perimeter_map_path, colored_path, confluency_percent, cells_per_mL, df):
     """
     - Overlays cell contours and perimeter values (in µm) on 'original'
     - Saves a color-labeled segmentation image
@@ -154,7 +154,7 @@ def visualize_and_save(original, label_image, perimeter_map_path, colored_path, 
     # 1) Annotated image with perimeter
     fig1, ax1 = plt.subplots(figsize=(10, 8))
     ax1.imshow(original)
-    ax1.set_title(f"Cells with Perimeter (µm); Confluency: {confluency_percent:.1f}%")
+    ax1.set_title(f"Cells with Perimeter (µm); Confluency: {confluency_percent:.1f}%; Cells/mL: {cells_per_mL:.0f}")
 
     # Get region properties again to annotate
     props = measure.regionprops(label_image)
@@ -179,12 +179,11 @@ def visualize_and_save(original, label_image, perimeter_map_path, colored_path, 
     # 2) Color-labeled segmentation image
     fig2, ax2 = plt.subplots(figsize=(10, 8))
     ax2.imshow(colored_labels)
-    ax2.set_title(f"Color-Labeled Segmentation; Confluency: {confluency_percent:.1f}%")
+    ax2.set_title(f"Color-Labeled Segmentation; Confluency: {confluency_percent:.1f}%; Cells/mL: {cells_per_mL:.0f}")
     ax2.axis('off')
     fig2.tight_layout()
     fig2.savefig(colored_path, dpi=150)
     plt.close(fig2)
-
 
 def main():
     all_results = []
@@ -216,32 +215,46 @@ def main():
                 "Estimated_Cells": cell_count
             })
 
-            # Save segmentation images with confluency in title
+            # Define culture parameters
+            CULTURE_AREA_CM2 = 25         # e.g., area of a T-25 flask in cm² 
+            RESUSPENSION_VOLUME_ML = 3      # volume in mL when cells are resuspended
+
+            # Calculate imaged area (using a 1920x1080 image and PIXELS_PER_UM = 2.21)
+            # (h and w are taken from labels.shape; if your images are always 1920x1080, then h=1080, w=1920)
+            imaged_area_um2 = (w / PIXELS_PER_UM) * (h / PIXELS_PER_UM)
+            imaged_area_cm2 = imaged_area_um2 / 1e8  # 1 cm² = 1e8 µm²
+
+            # Calculate density (cells per cm²) from imaged data:
+            density_cells_per_cm2 = cell_count / imaged_area_cm2
+
+            # Estimate total cells on the culture surface:
+            total_cells = density_cells_per_cm2 * CULTURE_AREA_CM2
+
+            # Finally, calculate cells per mL:
+            cells_per_mL = total_cells / RESUSPENSION_VOLUME_ML
+
+            # Compute file paths for saving images:
             base_name = os.path.splitext(file)[0]
             perimeter_map_path = os.path.join(OUTPUT_SEGMENTED_DIR, f"{base_name}_perimeter.png")
             colored_path = os.path.join(OUTPUT_SEGMENTED_DIR, f"{base_name}_colored.png")
-            visualize_and_save(original, labels, perimeter_map_path, colored_path, confluency, df)
 
-    # -------------------
-    # Combine and save results
-    # -------------------
+            # Call visualize_and_save() once with all needed parameters:
+            visualize_and_save(original, labels, perimeter_map_path, colored_path, confluency, cells_per_mL, df)
+
+    # Combine and save results...
     if all_results:
         final_df = pd.concat(all_results, ignore_index=True)
         final_df.to_csv(OUTPUT_CSV, index=False)
         print("Analysis Summary (All Regions Across All Images):")
         print(final_df.describe())
 
-        # Save summary of confluency + cell counts
         summary_df = pd.DataFrame(summary_list)
         summary_df.to_csv("outputs/image_summaries.csv", index=False)
         print("\nImage-Level Summary (Confluency, Cell Count):")
         print(summary_df)
 
-        # -------------------
-        # One combined plot for all images
-        # -------------------
+        # Combined feature distribution plot code...
         fig, axes = plt.subplots(2, 3, figsize=(18, 12))
-        # Histograms for entire dataset
         final_df.hist(column='Area_um2', bins=30, ax=axes[0, 0])
         axes[0, 0].set_title("Area (µm²) - All Images")
         final_df.hist(column='Perimeter_um', bins=30, ax=axes[0, 1])
@@ -259,7 +272,6 @@ def main():
         plt.savefig("outputs/combined_feature_distributions.png", dpi=150)
         plt.close()
         print("Combined feature distribution plot saved as 'combined_feature_distributions.png'.")
-
     else:
         print("No images processed.")
 
