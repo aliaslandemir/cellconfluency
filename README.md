@@ -1,5 +1,3 @@
-
-```markdown
 # Cell Confluency Analysis
 
 Cell Confluency Analysis is a Python-based pipeline for the automated segmentation and analysis of retinal pigment epithelium (RPE) cells from bright-field absorbance images. The pipeline leverages classical image processing techniques—such as background subtraction, adaptive thresholding, edge detection with Laplacian of Gaussian, and marker-controlled watershed segmentation with h‑minima refinement—to detect and separate densely connected cells. In addition, it computes various cell features (e.g., area, perimeter, convexity, solidity, circularity, eccentricity, and intensity statistics) and provides annotated visualizations.
