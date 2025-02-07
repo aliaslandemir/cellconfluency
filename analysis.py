@@ -68,19 +68,19 @@ def process_image(img_path):
     # Using adaptive threshold for uneven illumination
     thresh = cv2.adaptiveThreshold(enhanced, 255,
                                    cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                   cv2.THRESH_BINARY_INV, 31, 5)
+                                   cv2.THRESH_BINARY_INV, 51, 7)
     # For elongated cells, sometimes a slightly smaller blockSize or 
     # different constant can help. Adjust as needed.
 
     # 7. Morphological operations
     # Use elongated kernel to preserve elongated structures
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 7))
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 11))
     opened = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
     closed = cv2.morphologyEx(opened, cv2.MORPH_CLOSE, kernel, iterations=2)
 
     # 8. Distance transform + local peak detection
     distance = ndimage.distance_transform_edt(closed)
-    coords = feature.peak_local_max(distance, footprint=np.ones((15, 15)), labels=closed)
+    coords = feature.peak_local_max(distance, footprint=np.ones((60, 60)), labels=closed)
     local_maxi = np.zeros(distance.shape, dtype=bool)
     if coords.size:
         local_maxi[tuple(coords.T)] = True
@@ -98,6 +98,7 @@ def process_image(img_path):
 def analyze_cells(label_image, intensity_image):
     """
     Extract region properties for each cell, including shape and intensity features.
+    Returns a DataFrame with cell properties and the total cell area (in pixels).
     """
     props = measure.regionprops(label_image, intensity_image=intensity_image)
     results = []
@@ -139,27 +140,26 @@ def analyze_cells(label_image, intensity_image):
 
     return pd.DataFrame(results), total_area_px
 
-def visualize_and_save(original, label_image, perimeter_map_path, colored_path, df):
+
+
+def visualize_and_save(original, label_image, perimeter_map_path, colored_path, confluency_percent, df):
     """
     - Overlays cell contours and perimeter values (in µm) on 'original'
     - Saves a color-labeled segmentation image
-    - perimeter_map_path: file path to save perimeter-annotated image
-    - colored_path: file path to save color-labeled segmentation image
+    - The titles include the Confluency (%) value.
     """
     # Create the colored label image
     colored_labels = color.label2rgb(label_image, image=original, bg_label=0, alpha=0.3)
 
-    # -------------------------------------
     # 1) Annotated image with perimeter
-    # -------------------------------------
     fig1, ax1 = plt.subplots(figsize=(10, 8))
     ax1.imshow(original)
-    ax1.set_title("Cells with Perimeter (µm)")
+    ax1.set_title(f"Cells with Perimeter (µm); Confluency: {confluency_percent:.1f}%")
 
-    # We need regionprops again to get centroids + perimeter to annotate
+    # Get region properties again to annotate
     props = measure.regionprops(label_image)
     for prop in props:
-        perimeter_um = (prop.perimeter / PIXELS_PER_UM)
+        perimeter_um = prop.perimeter / PIXELS_PER_UM
         contour = measure.find_contours(prop.image, 0.5)
         if len(contour) > 0:
             c = contour[0]
@@ -167,7 +167,6 @@ def visualize_and_save(original, label_image, perimeter_map_path, colored_path, 
             c[:, 0] += y0
             c[:, 1] += x0
             ax1.plot(c[:, 1], c[:, 0], linewidth=1, color='yellow')
-            # Place perimeter text near centroid
             cy, cx = prop.centroid
             ax1.text(cx, cy, f"{perimeter_um:.1f}",
                      color='red', fontsize=8, ha='center', va='center')
@@ -177,16 +176,15 @@ def visualize_and_save(original, label_image, perimeter_map_path, colored_path, 
     fig1.savefig(perimeter_map_path, dpi=150)
     plt.close(fig1)
 
-    # -------------------------------------
     # 2) Color-labeled segmentation image
-    # -------------------------------------
     fig2, ax2 = plt.subplots(figsize=(10, 8))
     ax2.imshow(colored_labels)
-    ax2.set_title("Color-Labeled Segmentation")
+    ax2.set_title(f"Color-Labeled Segmentation; Confluency: {confluency_percent:.1f}%")
     ax2.axis('off')
     fig2.tight_layout()
     fig2.savefig(colored_path, dpi=150)
     plt.close(fig2)
+
 
 def main():
     all_results = []
@@ -202,17 +200,14 @@ def main():
                 continue
 
             df, total_area_px = analyze_cells(labels, enhanced)
-
-            # Add image filename to each row
             df['Image'] = file
             all_results.append(df)
 
-            # ---------------------------------------
-            # Calculate confluency & cell count
-            # ---------------------------------------
-            # Confluency = fraction of image area occupied by cells
-            total_pixels = labels.shape[0] * labels.shape[1]
+            # Calculate confluency:
+            h, w = labels.shape
+            total_pixels = h * w
             confluency = (total_area_px / total_pixels) * 100.0
+
             cell_count = len(df)  # each region ~ one cell
 
             summary_list.append({
@@ -221,17 +216,11 @@ def main():
                 "Estimated_Cells": cell_count
             })
 
-            # ---------------------------------------
-            # Save segmentation images
-            # ---------------------------------------
+            # Save segmentation images with confluency in title
             base_name = os.path.splitext(file)[0]
-            perimeter_map_path = os.path.join(
-                OUTPUT_SEGMENTED_DIR, f"{base_name}_perimeter.png"
-            )
-            colored_path = os.path.join(
-                OUTPUT_SEGMENTED_DIR, f"{base_name}_colored.png"
-            )
-            visualize_and_save(original, labels, perimeter_map_path, colored_path, df)
+            perimeter_map_path = os.path.join(OUTPUT_SEGMENTED_DIR, f"{base_name}_perimeter.png")
+            colored_path = os.path.join(OUTPUT_SEGMENTED_DIR, f"{base_name}_colored.png")
+            visualize_and_save(original, labels, perimeter_map_path, colored_path, confluency, df)
 
     # -------------------
     # Combine and save results
