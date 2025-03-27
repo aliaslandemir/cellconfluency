@@ -1,0 +1,98 @@
+---
+
+## 📄 **Microscope Camera Calibration & ImageJ Scaling Protocol**
+
+**User:** AAD
+
+**Camera:**  sMAX04BM
+
+**Sensor Type:** CMOS
+
+**Pixel Size:** 6.5 µm × 6.5 µm
+
+**Resolution:** 2048 × 2048
+
+**Mount Type:** C-Mount
+
+**Calibration Target:** USAF 1951 Resolution Chart
+
+**Objective Lenses Used:** 4×, 10×, 20×
+
+---
+
+### 🔧 1. Theoretical Pixel Scaling
+
+Using:
+
+µm per pixel=pixel sizeobjective magnification\text{µm per pixel} = \frac{\text{pixel size}}{\text{objective magnification}}
+
+| Objective | Pixel Size (µm) | Theoretical µm/px | Theoretical px/µm |
+| --- | --- | --- | --- |
+| **4×** | 6.5 | 1.625 | 0.615 |
+| **10×** | 6.5 | 0.650 | 1.538 |
+| **20×** | 6.5 | 0.325 | 3.077 |
+
+---
+
+### 🔬 2. Real-World Calibration (Measured Using USAF 1951)
+
+You used specific groups and elements to measure one line pair (black + white):
+
+| Objective | USAF Group–Element Used | Line Pair Distance (µm) | Pixel Distance (px) | Measured µm/px | Measured px/µm |
+| --- | --- | --- | --- | --- | --- |
+| **4×** | Group 3 – Element 4 | 88.4 µm | ~57 | **1.56** | **0.63** |
+| **10×** | Group 5 – Element 4 | 22.1 µm | ~35 | **0.63** | **1.58** |
+| **20×** | Group 5 – Element 5 | 19.6 µm | ~61 | **0.321** | **3.11** |
+
+📌 *Measured µm/px is derived from:*
+
+µm/px=Known line-pair distance (µm)Measured pixel length (px)\text{µm/px} = \frac{\text{Known line-pair distance (µm)}}{\text{Measured pixel length (px)}}
+
+---
+
+### 🧪 3. Using Calibration in ImageJ (10× Example)
+
+To accurately measure **cell size, area, or perimeter**, you must set the image scale using your **measured µm/px**.
+
+### ✅ ImageJ Calibration Steps:
+
+1. Open your 10× image in **ImageJ**
+2. Go to: `Analyze > Set Scale`
+3. Enter:
+
+| Field | Value |
+| --- | --- |
+| Distance in pixels | `100` |
+| Known distance | `63` |
+| Unit of length | `µm` |
+| Pixel aspect ratio | `1.0` |
+
+✔️ This tells ImageJ that **100 pixels = 63 µm**, so **1 pixel = 0.63 µm**, matching your calibrated value.
+
+1. (Optional) Tick ✅ **Global** if you want this scale applied to all open images.
+2. Click **OK**
+
+Now, when you measure a cell:
+
+- Perimeter will be in **µm**
+- Area will be in **µm²**
+
+---
+
+### ✅ Recommended Calibration Values for ImageJ
+
+Use these values in the **“Set Scale”** window depending on your objective:
+
+| Objective | µm/pixel to use | Example: 100 px = ? µm |
+| --- | --- | --- |
+| **4×** | `1.56` | 100 px = 156 µm |
+| **10×** | `0.63` | 100 px = 63 µm |
+| **20×** | `0.321` | 100 px = 32.1 µm |
+
+---
+
+### 🧾 Notes:
+
+- Your calibration is within **1–4% of theory**, so reliable for biological quantification.
+- Recalibrate if you change the camera, optical path, or objectives.
+- Use **macros** or save **TIFFs with scale info** to automate analysis workflows.
