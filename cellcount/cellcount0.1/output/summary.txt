@@ -1,0 +1,8 @@
+Summary of Cell Concentrations (cells/mL):
+Image 1: 110000 cells/mL
+Image 2: 90000 cells/mL
+Image 3: 200000 cells/mL
+Image 4: 180000 cells/mL
+Image 5: 240000 cells/mL
+
+Overall Mean: 164000 cells/mL, Standard Deviation: 56071 cells/mL
